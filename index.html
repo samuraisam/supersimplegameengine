@@ -1,0 +1,96 @@
+<html>
+  <head>
+    <title>Image Layouts</title>
+    <script src="animate.js"></script>
+    <script src="asset_manager.js"></script>
+  </head>
+  <body>
+    <h3>Consistent Layout</h3>
+    <canvas width="700" height="400" id="ly1"></canvas>
+    <div>
+      <br>
+      <button onclick="startAnimating()">Start</button>
+      <button onclick="stopAnimating()">Stop</button>
+      <strong id="framerate">0</strong>
+      <br>
+      <span>Loading:</span> <span id="loading"></span>
+    </div>
+    <style type="text/css">
+      canvas#ly1 { background-color: black; }
+    </style>
+    <script>
+      // load up a bunch of images from reddit
+      var images = [] // [url, title, id]
+      var callbacks = []
+      var canvas = document.getElementById('ly1').getContext('2d') 
+      var assets = ['img/spinner.sprite.png']
+      var columns = [[]]
+      for (var i = 0; i < assets.length; i++)
+        asset(assets[i], new Image())
+      
+      beginLoadingAssets(function() { // done
+        document.getElementById('loading').innerHTML = 'done'
+        fetchImageLinks()
+        enqueueAnimation('initial-loading-animation', new BaseSpriteAnimation(
+          {x: (700/2)-25, y: (400/2)-25}, 50, canvas, 10, 'img/spinner.sprite.png'));
+      }, function(numTotal, numLeft) { // progress
+        document.getElementById('loading').innerHTML = '' + numLeft + '/' + numTotal
+      })
+      
+      function fetchImageLinks() {
+        var url = ('http://reddit.com/r/aww/.json?jsonp=callbacks[' 
+                    + genImageLinksCallback() + ']' 
+                    + (images.length > 0 ? '&after=' + images[images.length-1][2] : ''))
+        var scriptNode = document.createElement('script')
+        scriptNode.setAttribute('src', url)
+        console.log(scriptNode)
+        document.getElementById('pages').appendChild(scriptNode)
+      }
+
+      function fetchImage(uri, idx, row) {
+        var img = new Image()
+        img.onload = function() {
+          console.log('loaded ', img)
+        }
+        img.src = uri
+        return img
+      }
+
+      function imageLinksCallback(data) {
+        var a, column
+        for (var i = 0, col = columns[columns.length-1].length; i < data.data.children.length; i++) {
+          var c = data.data.children[i]
+          if (!c.data.url.match(/\.jpg|png|gif|tiff|tif|bmp$/)) 
+            continue
+          var idx = images.length
+          if (5 <= col) {
+            col = 0
+            columns.push((column = []))
+          }
+          else column = columns[columns.length-1]
+          a = [c.data.url, c.data.title, c.data.id, fetchImage(c.data.url, columns.length - 1, col)]
+          column.push(a)
+          images.push(a)
+          col++
+        }
+        console.log(columns)
+        dequeueAnimation('initial-loading-animation')
+      }
+
+      function genImageLinksCallback() {
+        var decorator = function(data) {
+          imageLinksCallback(data)
+        }
+        callbacks.push(decorator)
+        return callbacks.indexOf(decorator)
+      }
+
+      //enqueueAnimation('ctx-clear', 
+      //  new ContextClearingAnimation({width: 700, height: 400}, canvas))
+
+      startAnimating()
+
+    </script>
+    <div id="pages" style="display:none;"></div>
+  </body>
+</html>
